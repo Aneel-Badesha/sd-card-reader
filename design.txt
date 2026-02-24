@@ -1,0 +1,22 @@
+Design Document for decisions
+
+//inputs/outputs
+i2c:
+    thumbstick
+spi:
+    oled display - needs driver
+    micro sd card reader - needs driver
+gpio:
+    -2 buttons
+uart:
+    -uart to rpi
+
+folder structure:
+    /components
+        /i2c
+        /spi
+        /gpio
+        /uart
+        /oled_display
+        /micro sd card reader
+    /main
