@@ -180,8 +180,7 @@ esp_err_t thumbstick_init(void)
 
     /* Create the task before registering the callback so s_task_handle
        is valid when the first ISR fires after adc_continuous_start. */
-    BaseType_t task_rc = xTaskCreate(s_thumbstick_task, "thumbstick",
-                                     4096, NULL, 5, &s_task_handle);
+    BaseType_t task_rc = xTaskCreate(s_thumbstick_task, "thumbstick", 4096, NULL, 5, &s_task_handle);
     if (task_rc != pdPASS) {
         ESP_LOGE(TAG, "Failed to create thumbstick task");
         adc_continuous_deinit(s_adc_handle);
