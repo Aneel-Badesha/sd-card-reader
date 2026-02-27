@@ -108,7 +108,6 @@ static void s_thumbstick_task(void *arg)
 
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        ESP_LOGI(TAG, "ADC notification received");
 
         while (1) {
             memset(result, 0, sizeof(result));
@@ -116,7 +115,6 @@ static void s_thumbstick_task(void *arg)
             if (ret == ESP_OK) {
                 adc_digi_output_data_t *raw = (adc_digi_output_data_t *)result;
                 uint32_t num_samples = ret_num / SOC_ADC_DIGI_RESULT_BYTES;
-                ESP_LOGD(TAG, "Read %"PRIu32" bytes, %"PRIu32" samples", ret_num, num_samples);
 
                 uint32_t new_x = s_x_value;
                 uint32_t new_y = s_y_value;
@@ -124,7 +122,6 @@ static void s_thumbstick_task(void *arg)
                 for (uint32_t i = 0; i < num_samples; i++) {
                     uint8_t  ch  = raw[i].type1.channel;
                     uint32_t val = raw[i].type1.data;
-                    ESP_LOGD(TAG, "  sample[%"PRIu32"]: ch=%d val=%"PRIu32, i, ch, val);
 
                     if (ch == s_channels[0]) {
                         new_x = val;
