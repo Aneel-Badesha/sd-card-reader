@@ -103,35 +103,35 @@ static esp_err_t s_adc_init(void)
 static void s_thumbstick_task(void *arg)
 {
     esp_err_t ret;
-    uint32_t  ret_num = 0;
-    uint8_t   result[THUMBSTICK_READ_LEN];
+    uint32_t ret_num = 0;
+    uint8_t result[THUMBSTICK_READ_LEN];
 
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        ESP_LOGI(TAG, "ADC notification received");
 
         while (1) {
             memset(result, 0, sizeof(result));
-            ret = adc_continuous_read(s_adc_handle, result,
-                                      THUMBSTICK_READ_LEN, &ret_num, 0);
+            ret = adc_continuous_read(s_adc_handle, result, THUMBSTICK_READ_LEN, &ret_num, 0);
             if (ret == ESP_OK) {
                 adc_digi_output_data_t *raw = (adc_digi_output_data_t *)result;
                 uint32_t num_samples = ret_num / SOC_ADC_DIGI_RESULT_BYTES;
+                ESP_LOGD(TAG, "Read %"PRIu32" bytes, %"PRIu32" samples", ret_num, num_samples);
 
                 uint32_t new_x = s_x_value;
                 uint32_t new_y = s_y_value;
 
                 for (uint32_t i = 0; i < num_samples; i++) {
-                    uint8_t  ch  = raw[i].type2.channel;
-                    uint32_t val = raw[i].type2.data;
+                    uint8_t  ch  = raw[i].type1.channel;
+                    uint32_t val = raw[i].type1.data;
+                    ESP_LOGD(TAG, "  sample[%"PRIu32"]: ch=%d val=%"PRIu32, i, ch, val);
 
                     if (ch == s_channels[0]) {
                         new_x = val;
-                        ESP_LOGD(TAG, "X ch=%d val=%"PRIu32, ch, val);
                     } else if (ch == s_channels[1]) {
                         new_y = val;
-                        ESP_LOGD(TAG, "Y ch=%d val=%"PRIu32, ch, val);
                     } else {
-                        ESP_LOGW(TAG, "Unexpected channel %d val=%"PRIu32, ch, val);
+                        ESP_LOGD(TAG, "Unexpected channel %d val=%"PRIu32, ch, val);
                     }
                 }
 
