@@ -20,3 +20,21 @@ folder structure:
         /oled_display
         /micro sd card reader
     /main
+
+
+File system: FatFS vs littlefs
+
+FatFS (File Allocation Table):
+    -industry standard for SD card
+    -optimized for the 512 byte block architecture of SD cards
+    -not fail-safe, if power is lost during update whole system can become corrupted
+
+littlefs:
+    -optimized for high integrity logging
+    -uses copy-on-write where old data is never overwritten until the new data is safely sotred
+    -immune to powerloss corruption
+    -cannt read it on a PC easily
+    -performance drops for large files
+
+-use FAT if you need to swap the card with a computer
+-use littlefs if the card stays permanently inside a device and must never "brick" itself due to a power outage
