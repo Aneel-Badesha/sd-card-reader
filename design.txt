@@ -1,6 +1,6 @@
 Design Document for decisions
 
-//inputs/outputs
+// inputs/outputs
 i2c:
     thumbstick
 spi:
