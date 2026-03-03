@@ -38,3 +38,25 @@ littlefs:
 
 -use FAT if you need to swap the card with a computer
 -use littlefs if the card stays permanently inside a device and must never "brick" itself due to a power outage
+
+
+SD Card Interface: SDMMC vs SPI
+SDMMC:
+    -SDMMC is the native SD protocol designed specifically for high-speed memory access
+    -supports 4-bit mode, offering up to 4x the bandwidth of SPI
+    -features a dedicated hardware controller that manages DMA transfers with minimal CPU overhead
+    -supports advanced SD card functions and higher clock speeds (up to 40-50 MHz)
+
+    -on the ESP32, you are restricted to specific IO_MUX pins (GPIO 14, 15, 2, 4, 12, 13)
+    -equires external pull-up resistors (typically 10kΩ) on most lines for stable high-speed operation
+    -eMMC chips cannot be used over SPI and must use SDMMC
+
+SPI:
+
+    -SPI is a generic serial protocol that allows the SD card to act as a standard SPI peripheral
+    -can be routed to any GPIO pin via the ESP32's GPIO matrix
+    -easily shares the bus with other SPI devices using a dedicated Chip Select (CS) pin
+    -lower hardware requirements; often easier to debug for basic data logging
+    -restricted to 1-bit mode, making it significantly slower for large file transfers
+    -every block read/write requires more command/response cycles compared to native SDMMC
+    -in the ESP-IDF framework, SPI mode can exhibit higher latency due to software-managed CS and protocol encapsulation
