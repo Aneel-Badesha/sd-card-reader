@@ -60,3 +60,7 @@ SPI:
     -restricted to 1-bit mode, making it significantly slower for large file transfers
     -every block read/write requires more command/response cycles compared to native SDMMC
     -in the ESP-IDF framework, SPI mode can exhibit higher latency due to software-managed CS and protocol encapsulation
+
+Deployment features to add:
+    -pre_commit
+    -unit tests via github actions
