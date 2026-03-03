@@ -56,21 +56,23 @@ void s_button_task(void *pvParameters)
     }
 }
 
-void s_thumbstick_task()
+void s_thumbstick_task(void *pvParameters)
 {
     esp_err_t rc = thumbstick_init();
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init thumbstick");
+        vTaskDelete(NULL);
         return;
     }
 
-    while(1)    {
+    while(1) {
         uint32_t x_out = 0;
         uint32_t y_out = 0;
 
         rc = thumbstick_get_values(&x_out, &y_out);
         if (rc != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to init thumbstick");
+            ESP_LOGE(TAG, "Failed to get thumbstick values");
+            vTaskDelete(NULL);
             return;
         }
 
@@ -79,19 +81,21 @@ void s_thumbstick_task()
     }
 }
 
-void s_sd_card_task()
+void s_sd_card_task(void *pvParameters)
 {
     esp_err_t rc = sdcard_init();
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init sd card");
+        vTaskDelete(NULL);
         return;
     }
 
     rc = sdcard_deinit();
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to deinit sd card");
-        return;
     }
+
+    vTaskDelete(NULL);
 }
 
 void app_main(void)
