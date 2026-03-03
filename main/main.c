@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "button.h"
 #include "thumbstick.h"
+#include "sdcard.h"
 
 static const char *TAG = "sd_card_reader";
 
@@ -12,6 +13,8 @@ static const char *TAG = "sd_card_reader";
 #define GPIO_GREEN_BUTTON 16
 
 static TaskHandle_t s_task_handle_button = NULL;
+static TaskHandle_t s_task_handle_thumbstick = NULL;
+static TaskHandle_t s_task_handle_sd_card = NULL;
 static SemaphoreHandle_t s_mutex_button = NULL;
 static int s_button_values[2];
 
@@ -51,23 +54,11 @@ void s_button_task()
 
 }
 
-void app_main(void)
+void s_thumbstick_task()
 {
-    ESP_LOGI(TAG, "SD card reader starting...");
-    
-    BaseType_t task_rc = xTaskCreate(s_button_task, "button", 4096, NULL, 5, &s_task_handle_button);
-    if (task_rc != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create button task");
-        vSemaphoreDelete(s_mutex_button);
-        s_mutex_button = NULL;
-        return;
-    }
-
     esp_err_t rc = thumbstick_init();
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init thumbstick");
-        vSemaphoreDelete(s_mutex_button);
-        s_mutex_button = NULL;
         return;
     }
 
@@ -78,13 +69,50 @@ void app_main(void)
         rc = thumbstick_get_values(&x_out, &y_out);
         if (rc != ESP_OK) {
             ESP_LOGE(TAG, "Failed to init thumbstick");
-            vSemaphoreDelete(s_mutex_button);
-            s_mutex_button = NULL;
             return;
         }
 
         ESP_LOGD(TAG, "X value: %"PRIu32", Y value: %"PRIu32, x_out, y_out);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-        
+}
+
+void s_sd_card_task()
+{
+    esp_err_t rc = sdcard_init();
+    if (rc != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to init sd card");
+        return;
+    }
+
+    rc = sdcard_deinit();
+    if (rc != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to deinit sd card");
+        return;
+    }
+}
+
+void app_main(void)
+{
+    ESP_LOGI(TAG, "SD card reader starting...");
+    
+    BaseType_t task_rc_button = xTaskCreate(s_button_task, "button", 4096, NULL, 5, &s_task_handle_button);
+    if (task_rc_button != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create button task");
+        vSemaphoreDelete(s_mutex_button);
+        s_mutex_button = NULL;
+        return;
+    }
+
+    BaseType_t task_rc_thumbstick = xTaskCreate(s_thumbstick_task, "thumbstick", 4096, NULL, 5, &s_task_handle_thumbstick);
+    if (task_rc_thumbstick != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create thumbstick task");
+        return;
+    }
+
+    BaseType_t task_rc_sd_card = xTaskCreate(s_sd_card_task, "sdcard", 4096, NULL, 5, &s_task_handle_sd_card);
+    if (task_rc_sd_card != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create sdcard task");
+        return;
+    }
 }

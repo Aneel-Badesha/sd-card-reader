@@ -1,3 +1,3 @@
 idf_component_register(SRCS "sdcard.c"
                     INCLUDE_DIRS "include"
-                    REQUIRES driver freertos)
+                    REQUIRES driver fatfs sdmmc)
