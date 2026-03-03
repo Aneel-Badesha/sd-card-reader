@@ -18,11 +18,12 @@ static TaskHandle_t s_task_handle_sd_card = NULL;
 static SemaphoreHandle_t s_mutex_button = NULL;
 static int s_button_values[2];
 
-void s_button_task()
+void s_button_task(void *pvParameters)
 {
     s_mutex_button = xSemaphoreCreateMutex();
     if (s_mutex_button == NULL) {
         ESP_LOGE(TAG, "Failed to create mutex");
+        vTaskDelete(NULL);
         return;
     }
 
@@ -31,6 +32,7 @@ void s_button_task()
         vSemaphoreDelete(s_mutex_button);
         s_mutex_button = NULL;
         ESP_LOGE(TAG, "Failed to init green button");
+        vTaskDelete(NULL);
         return;
     }
 
@@ -39,11 +41,12 @@ void s_button_task()
     {
         vSemaphoreDelete(s_mutex_button);
         s_mutex_button = NULL;
-        ESP_LOGE(TAG, "Failed to init green button");
+        ESP_LOGE(TAG, "Failed to init red button");
+        vTaskDelete(NULL);
         return;
     }
 
-    while(1)    {
+    while(1) {
         xSemaphoreTake(s_mutex_button, pdMS_TO_TICKS(10));
         s_button_values[0] = button_is_pressed(GPIO_GREEN_BUTTON);
         s_button_values[1] = button_is_pressed(GPIO_RED_BUTTON);
@@ -51,7 +54,6 @@ void s_button_task()
         xSemaphoreGive(s_mutex_button);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-
 }
 
 void s_thumbstick_task()
