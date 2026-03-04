@@ -2,16 +2,6 @@
 
 #include "thumbstick.h"
 
-void setUp(void)
-{
-}
-
-void tearDown(void)
-{
-    // Reset module state between tests
-    thumbstick_deinit();
-}
-
 void test_get_values_before_init_returns_invalid_state(void)
 {
     uint32_t x, y;

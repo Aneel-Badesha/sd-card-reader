@@ -3,16 +3,6 @@
 #include "button.h"
 #include "driver/gpio.h"
 
-void setUp(void)
-{
-    stub_set_gpio_level(1);
-    stub_set_gpio_config_rc(ESP_OK);
-}
-
-void tearDown(void)
-{
-}
-
 void test_init_button_returns_ok(void)
 {
     esp_err_t rc = init_button(GPIO_NUM_0);

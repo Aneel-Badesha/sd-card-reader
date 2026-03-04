@@ -7,16 +7,6 @@
 
 #define TMP_FILE "/tmp/test_sdcard.txt"
 
-void setUp(void)
-{
-    remove(TMP_FILE);
-}
-
-void tearDown(void)
-{
-    remove(TMP_FILE);
-}
-
 void test_write_file_creates_file_with_correct_content(void)
 {
     esp_err_t rc = sdcard_write_file(TMP_FILE, "hello world\n");

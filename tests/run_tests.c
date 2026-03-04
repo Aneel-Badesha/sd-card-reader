@@ -1,5 +1,25 @@
 #include "unity.h"
 
+#include "driver/gpio.h"
+#include "thumbstick.h"
+#include <stdio.h>
+
+#define TMP_FILE "/tmp/test_sdcard.txt"
+
+void setUp(void)
+{
+    remove(TMP_FILE);
+    thumbstick_deinit();
+    stub_set_gpio_level(1);
+    stub_set_gpio_config_rc(ESP_OK);
+}
+
+void tearDown(void)
+{
+    remove(TMP_FILE);
+    thumbstick_deinit();
+}
+
 // sdcard tests
 void test_write_file_creates_file_with_correct_content(void);
 void test_write_file_bad_path_returns_fail(void);
