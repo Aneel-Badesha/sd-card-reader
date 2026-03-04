@@ -1,5 +1,6 @@
 #include "button.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "sdcard.h"
@@ -82,11 +83,23 @@ void s_thumbstick_task(void *pvParameters)
 
 void s_sd_card_task(void *pvParameters)
 {
+    vTaskDelay(pdMS_TO_TICKS(500)); // wait for SD card VCC to stabilise
     esp_err_t rc = sdcard_init();
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init sd card");
         vTaskDelete(NULL);
         return;
+    }
+
+    int64_t us = esp_timer_get_time();
+    char timestamp[64];
+    snprintf(timestamp, sizeof(timestamp), "uptime: %lld.%06lld s\n", us / 1000000, us % 1000000);
+
+    rc = sdcard_write_file("/sdcard/timestamp.txt", timestamp);
+    if (rc != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to write timestamp file");
+    } else {
+        ESP_LOGI(TAG, "Wrote timestamp: %s", timestamp);
     }
 
     rc = sdcard_deinit();

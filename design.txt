@@ -28,6 +28,7 @@ FatFS (File Allocation Table):
     -industry standard for SD card
     -optimized for the 512 byte block architecture of SD cards
     -not fail-safe, if power is lost during update whole system can become corrupted
+    -use FAT if you need to swap the card with a computer
 
 littlefs:
     -optimized for high integrity logging
@@ -35,9 +36,7 @@ littlefs:
     -immune to powerloss corruption
     -cannt read it on a PC easily
     -performance drops for large files
-
--use FAT if you need to swap the card with a computer
--use littlefs if the card stays permanently inside a device and must never "brick" itself due to a power outage
+    -use littlefs if the card stays permanently inside a device and must never "brick" itself due to a power outage
 
 
 SD Card Interface: SDMMC vs SPI
@@ -52,7 +51,6 @@ SDMMC:
     -eMMC chips cannot be used over SPI and must use SDMMC
 
 SPI:
-
     -SPI is a generic serial protocol that allows the SD card to act as a standard SPI peripheral
     -can be routed to any GPIO pin via the ESP32's GPIO matrix
     -easily shares the bus with other SPI devices using a dedicated Chip Select (CS) pin
@@ -61,6 +59,9 @@ SPI:
     -every block read/write requires more command/response cycles compared to native SDMMC
     -in the ESP-IDF framework, SPI mode can exhibit higher latency due to software-managed CS and protocol encapsulation
 
-Deployment features to add:
-    -pre_commit
-    -unit tests via github actions
+-Decided to use SPi with FAT32
+
+Project Challenges:
+    -SD card needs a 10kΩ pullup resistor to prevent MISO from floating
+    -SD card needs 5V not 3.3V input because it has an onboard 5V->3.3V regulator
+    -FAT 8.4 format limits filenames to 8chars, allocated a small heap buffer for longer filenames

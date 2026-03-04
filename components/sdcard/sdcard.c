@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
+#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -32,6 +33,8 @@ esp_err_t sdcard_init(void)
 
     ESP_LOGI(TAG, "Initializing SD card");
     s_host = (sdmmc_host_t)SDSPI_HOST_DEFAULT();
+    s_host.slot = SPI3_HOST;    // GPIO 18/19/23/5 are native VSPI pins
+    s_host.max_freq_khz = 4000; // 4 MHz — reduces CRC errors on breadboard wiring
 
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = SD_CARD_MOSI,
@@ -98,7 +101,7 @@ esp_err_t sdcard_write_file(const char *path, const char *data)
     ESP_LOGI(TAG, "Opening file %s", path);
     FILE *f = fopen(path, "w");
     if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for writing");
+        ESP_LOGE(TAG, "Failed to open file for writing (errno %d)", errno);
         return ESP_FAIL;
     }
     fprintf(f, "%s", data);
