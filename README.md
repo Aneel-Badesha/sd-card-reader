@@ -16,7 +16,7 @@ Aneel Badesha
 | GPIO | Green button | GPIO 16 |
 | GPIO | Red button | GPIO 17 |
 | I2C (ADC) | Thumbstick (X/Y axes) | ADC CH0, ADC CH2 |
-| SPI | Micro SD card reader | MOSI 23, MISO 19, SCLK 18, CS 5 |
+| SPI | Micro SD card reader | MOSI 23, MISO 19, SCLK 18, CS 5, VCC **5V** |
 | SPI | 1.5" RGB OLED display (SSD1351, 128x128) | TBD |
 | UART | Raspberry Pi | TBD |
 
@@ -36,13 +36,14 @@ Aneel Badesha
 
 - [x] GPIO button driver (`components/button`) — active-low, pull-up input
 - [x] Thumbstick driver (`components/thumbstick`) — continuous ADC sampling at 20 kHz with mutex-protected reads
-- [x] SD card driver (`components/sdcard`) — SPI mode, FatFS mount, read/write/deinit
+- [x] SD card driver (`components/sdcard`) — SPI mode at 4 MHz, FatFS mount, read/write/deinit
 - [x] FreeRTOS task structure in `main.c` for buttons, thumbstick, and SD card
+- [x] SD card task writes a boot-uptime timestamp to `/sdcard/timestamp.txt` on startup
+- [x] Pre-commit hooks — clang-format (Linux brace style, 4-space indent, 120 col) + trailing whitespace/EOF checks
+- [x] Unit tests for all three components with GitHub Actions CI (plain CMake + Unity, no ESP-IDF required)
 - [x] Added Waveshare 1.5" RGB OLED submodule as driver reference
 - [ ] OLED display driver (`components/oled_display`) — SSD1351, SPI
 - [ ] UART bridge to Raspberry Pi
-- [ ] Pre-commit hooks
-- [ ] Unit tests via GitHub Actions
 
 ## Design Decisions
 
