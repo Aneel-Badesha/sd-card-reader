@@ -93,7 +93,7 @@ esp_err_t sdcard_read_file(const char *path)
     return ESP_OK;
 }
 
-esp_err_t sdcard_write_file(const char *path, char *data)
+esp_err_t sdcard_write_file(const char *path, const char *data)
 {
     ESP_LOGI(TAG, "Opening file %s", path);
     FILE *f = fopen(path, "w");
