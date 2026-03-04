@@ -8,13 +8,11 @@ esp_err_t init_button(gpio_num_t gpio_num)
 {
     esp_err_t rc;
 
-    gpio_config_t gpio_cfg = {
-        .pin_bit_mask = (1ULL << gpio_num),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE
-    };
+    gpio_config_t gpio_cfg = {.pin_bit_mask = (1ULL << gpio_num),
+                              .mode = GPIO_MODE_INPUT,
+                              .pull_up_en = GPIO_PULLUP_ENABLE,
+                              .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                              .intr_type = GPIO_INTR_DISABLE};
 
     rc = gpio_config(&gpio_cfg);
     if (rc != ESP_OK) {

@@ -1,8 +1,8 @@
 #ifndef THUMBSTICK_H
 #define THUMBSTICK_H
 
-#include <stdint.h>
 #include "esp_err.h"
+#include <stdint.h>
 
 // Initialize thumbstick ADC and start internal background read task
 esp_err_t thumbstick_init(void);

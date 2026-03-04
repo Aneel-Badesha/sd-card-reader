@@ -1,9 +1,9 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
-#include <stdbool.h>
-#include "esp_err.h"
 #include "driver/gpio.h"
+#include "esp_err.h"
+#include <stdbool.h>
 
 // Initialize button
 esp_err_t init_button(gpio_num_t gpio_num);

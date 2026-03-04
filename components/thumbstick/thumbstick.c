@@ -1,12 +1,12 @@
 #include "thumbstick.h"
 
-#include <string.h>
-#include <stdint.h>
+#include "esp_adc/adc_continuous.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "esp_adc/adc_continuous.h"
+#include "freertos/task.h"
+#include <stdint.h>
+#include <string.h>
 
 static const char *TAG = "thumbstick";
 
@@ -14,36 +14,32 @@ static const char *TAG = "thumbstick";
 /*  Configuration                                                       */
 /* ------------------------------------------------------------------ */
 
-#define THUMBSTICK_ADC_UNIT         ADC_UNIT_1
-#define THUMBSTICK_ADC_CONV_MODE    ADC_CONV_SINGLE_UNIT_1
-#define THUMBSTICK_ADC_ATTEN        ADC_ATTEN_DB_12
-#define THUMBSTICK_ADC_BIT_WIDTH    SOC_ADC_DIGI_MAX_BITWIDTH
-#define THUMBSTICK_READ_LEN         256
-#define THUMBSTICK_CHANNEL_SIZE     2
+#define THUMBSTICK_ADC_UNIT ADC_UNIT_1
+#define THUMBSTICK_ADC_CONV_MODE ADC_CONV_SINGLE_UNIT_1
+#define THUMBSTICK_ADC_ATTEN ADC_ATTEN_DB_12
+#define THUMBSTICK_ADC_BIT_WIDTH SOC_ADC_DIGI_MAX_BITWIDTH
+#define THUMBSTICK_READ_LEN 256
+#define THUMBSTICK_CHANNEL_SIZE 2
 
 /* X axis = CH0, Y axis = CH2 */
-static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {
-    ADC_CHANNEL_0,
-    ADC_CHANNEL_2
-};
+static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {ADC_CHANNEL_0, ADC_CHANNEL_2};
 
 /* ------------------------------------------------------------------ */
 /*  Module-level state                                                  */
 /* ------------------------------------------------------------------ */
 
-static adc_continuous_handle_t s_adc_handle  = NULL;
-static TaskHandle_t             s_task_handle = NULL;
-static SemaphoreHandle_t        s_mutex       = NULL;
-static uint32_t                 s_x_value     = 0;
-static uint32_t                 s_y_value     = 0;
-static bool                     s_initialized = false;
+static adc_continuous_handle_t s_adc_handle = NULL;
+static TaskHandle_t s_task_handle = NULL;
+static SemaphoreHandle_t s_mutex = NULL;
+static uint32_t s_x_value = 0;
+static uint32_t s_y_value = 0;
+static bool s_initialized = false;
 
 /* ------------------------------------------------------------------ */
 /*  ISR callback – notifies the reader task that a frame is ready      */
 /* ------------------------------------------------------------------ */
 
-static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle,
-                                     const adc_continuous_evt_data_t *edata,
+static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuous_evt_data_t *edata,
                                      void *user_data)
 {
     BaseType_t must_yield = pdFALSE;
@@ -61,7 +57,7 @@ static esp_err_t s_adc_init(void)
 
     adc_continuous_handle_cfg_t handle_cfg = {
         .max_store_buf_size = 1024,
-        .conv_frame_size    = THUMBSTICK_READ_LEN,
+        .conv_frame_size = THUMBSTICK_READ_LEN,
     };
     rc = adc_continuous_new_handle(&handle_cfg, &s_adc_handle);
     if (rc != ESP_OK) {
@@ -71,19 +67,19 @@ static esp_err_t s_adc_init(void)
 
     adc_digi_pattern_config_t adc_pattern[SOC_ADC_PATT_LEN_MAX] = {0};
     for (int i = 0; i < THUMBSTICK_CHANNEL_SIZE; i++) {
-        adc_pattern[i].atten     = THUMBSTICK_ADC_ATTEN;
-        adc_pattern[i].channel   = s_channels[i] & 0x7;
-        adc_pattern[i].unit      = THUMBSTICK_ADC_UNIT;
+        adc_pattern[i].atten = THUMBSTICK_ADC_ATTEN;
+        adc_pattern[i].channel = s_channels[i] & 0x7;
+        adc_pattern[i].unit = THUMBSTICK_ADC_UNIT;
         adc_pattern[i].bit_width = THUMBSTICK_ADC_BIT_WIDTH;
-        ESP_LOGD(TAG, "adc_pattern[%d]: atten=0x%"PRIx8" ch=0x%"PRIx8" unit=0x%"PRIx8,
-                 i, adc_pattern[i].atten, adc_pattern[i].channel, adc_pattern[i].unit);
+        ESP_LOGD(TAG, "adc_pattern[%d]: atten=0x%" PRIx8 " ch=0x%" PRIx8 " unit=0x%" PRIx8, i, adc_pattern[i].atten,
+                 adc_pattern[i].channel, adc_pattern[i].unit);
     }
 
     adc_continuous_config_t dig_cfg = {
         .sample_freq_hz = 20 * 1000,
-        .conv_mode      = THUMBSTICK_ADC_CONV_MODE,
-        .pattern_num    = THUMBSTICK_CHANNEL_SIZE,
-        .adc_pattern    = adc_pattern,
+        .conv_mode = THUMBSTICK_ADC_CONV_MODE,
+        .pattern_num = THUMBSTICK_CHANNEL_SIZE,
+        .adc_pattern = adc_pattern,
     };
     rc = adc_continuous_config(s_adc_handle, &dig_cfg);
     if (rc != ESP_OK) {
@@ -120,7 +116,7 @@ static void s_thumbstick_task(void *arg)
                 uint32_t new_y = s_y_value;
 
                 for (uint32_t i = 0; i < num_samples; i++) {
-                    uint8_t  ch  = raw[i].type1.channel;
+                    uint8_t ch = raw[i].type1.channel;
                     uint32_t val = raw[i].type1.data;
 
                     if (ch == s_channels[0]) {
@@ -128,7 +124,7 @@ static void s_thumbstick_task(void *arg)
                     } else if (ch == s_channels[1]) {
                         new_y = val;
                     } else {
-                        ESP_LOGD(TAG, "Unexpected channel %d val=%"PRIu32, ch, val);
+                        ESP_LOGD(TAG, "Unexpected channel %d val=%" PRIu32, ch, val);
                     }
                 }
 

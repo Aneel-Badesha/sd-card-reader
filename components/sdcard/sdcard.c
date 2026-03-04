@@ -1,24 +1,24 @@
 #include "sdcard.h"
 
-#include <string.h>
-#include <sys/stat.h>
+#include "driver/sdspi_host.h"
+#include "driver/spi_common.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
-#include "driver/sdspi_host.h"
-#include "driver/spi_common.h"
+#include <string.h>
+#include <sys/stat.h>
 
 static const char *TAG = "sdcard";
 
-#define SD_CARD_CS   5
+#define SD_CARD_CS 5
 #define SD_CARD_SCLK 18
 #define SD_CARD_MISO 19
 #define SD_CARD_MOSI 23
-#define MOUNT_POINT  "/sdcard"
+#define MOUNT_POINT "/sdcard"
 
 // Module-level state so deinit can access them
 static sdmmc_card_t *s_card = NULL;
-static sdmmc_host_t  s_host;
+static sdmmc_host_t s_host;
 
 esp_err_t sdcard_init(void)
 {

@@ -1,11 +1,11 @@
-#include <stdio.h>
-#include <inttypes.h>
+#include "button.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_log.h"
-#include "button.h"
-#include "thumbstick.h"
 #include "sdcard.h"
+#include "thumbstick.h"
+#include <inttypes.h>
+#include <stdio.h>
 
 static const char *TAG = "sd_card_reader";
 
@@ -37,8 +37,7 @@ void s_button_task(void *pvParameters)
     }
 
     rc = init_button(GPIO_RED_BUTTON);
-    if(rc != ESP_OK)
-    {
+    if (rc != ESP_OK) {
         vSemaphoreDelete(s_mutex_button);
         s_mutex_button = NULL;
         ESP_LOGE(TAG, "Failed to init red button");
@@ -46,7 +45,7 @@ void s_button_task(void *pvParameters)
         return;
     }
 
-    while(1) {
+    while (1) {
         xSemaphoreTake(s_mutex_button, pdMS_TO_TICKS(10));
         s_button_values[0] = button_is_pressed(GPIO_GREEN_BUTTON);
         s_button_values[1] = button_is_pressed(GPIO_RED_BUTTON);
@@ -65,7 +64,7 @@ void s_thumbstick_task(void *pvParameters)
         return;
     }
 
-    while(1) {
+    while (1) {
         uint32_t x_out = 0;
         uint32_t y_out = 0;
 
@@ -76,7 +75,7 @@ void s_thumbstick_task(void *pvParameters)
             return;
         }
 
-        ESP_LOGD(TAG, "X value: %"PRIu32", Y value: %"PRIu32, x_out, y_out);
+        ESP_LOGD(TAG, "X value: %" PRIu32 ", Y value: %" PRIu32, x_out, y_out);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
@@ -101,7 +100,7 @@ void s_sd_card_task(void *pvParameters)
 void app_main(void)
 {
     ESP_LOGI(TAG, "SD card reader starting...");
-    
+
     BaseType_t task_rc_button = xTaskCreate(s_button_task, "button", 4096, NULL, 5, &s_task_handle_button);
     if (task_rc_button != pdPASS) {
         ESP_LOGE(TAG, "Failed to create button task");
@@ -110,7 +109,8 @@ void app_main(void)
         return;
     }
 
-    BaseType_t task_rc_thumbstick = xTaskCreate(s_thumbstick_task, "thumbstick", 4096, NULL, 5, &s_task_handle_thumbstick);
+    BaseType_t task_rc_thumbstick =
+        xTaskCreate(s_thumbstick_task, "thumbstick", 4096, NULL, 5, &s_task_handle_thumbstick);
     if (task_rc_thumbstick != pdPASS) {
         ESP_LOGE(TAG, "Failed to create thumbstick task");
         return;
