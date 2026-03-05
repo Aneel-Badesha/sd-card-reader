@@ -59,7 +59,7 @@ SPI:
     -every block read/write requires more command/response cycles compared to native SDMMC
     -in the ESP-IDF framework, SPI mode can exhibit higher latency due to software-managed CS and protocol encapsulation
 
--Decided to use SPi with FAT32
+-Decided to use SPI with FAT32
 
 Project Challenges:
     -SD card needs a 10kΩ pullup resistor to prevent MISO from floating
