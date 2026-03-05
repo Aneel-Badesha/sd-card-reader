@@ -24,9 +24,9 @@ Aneel Badesha
 
 ```
 /components
-  /button        - GPIO button driver (done)
-  /thumbstick    - ADC thumbstick driver (done)
-  /sdcard        - SPI SD card driver with FatFS (done)
+  /button        - GPIO button driver
+  /thumbstick    - ADC thumbstick driver
+  /sdcard        - SPI SD card driver with FatFS
   /oled_display  - SSD1351 OLED driver (not started)
 /main            - Application entry point and FreeRTOS tasks
 /1.5inch-RGB-OLED-Module  - Waveshare driver reference (git submodule)
