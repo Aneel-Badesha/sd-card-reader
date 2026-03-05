@@ -2,6 +2,10 @@
 
 #include "esp_err.h"
 
+#define SPI1_HOST 0
+#define SPI2_HOST 1
+#define SPI3_HOST 2
+
 typedef struct {
     int mosi_io_num;
     int miso_io_num;
