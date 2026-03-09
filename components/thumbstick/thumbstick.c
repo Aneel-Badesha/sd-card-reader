@@ -44,7 +44,7 @@ static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_c
 {
     BaseType_t must_yield = pdFALSE;
     vTaskNotifyGiveFromISR(s_task_handle, &must_yield);
-    return (must_yield == pdTRUE)
+    return (must_yield == pdTRUE);
 }
 
 /* ------------------------------------------------------------------ */
