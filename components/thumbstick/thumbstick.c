@@ -25,7 +25,7 @@ static const char *TAG = "thumbstick";
 static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {ADC_CHANNEL_0, ADC_CHANNEL_2};
 
 /* ------------------------------------------------------------------ */
-/*  Module-level state                                                  */
+/*  Module-level state                                                */
 /* ------------------------------------------------------------------ */
 
 static adc_continuous_handle_t s_adc_handle = NULL;
@@ -36,7 +36,7 @@ static uint32_t s_y_value = 0;
 static bool s_initialized = false;
 
 /* ------------------------------------------------------------------ */
-/*  ISR callback – notifies the reader task that a frame is ready      */
+/*  ISR callback – notifies the reader task that a frame is ready     */
 /* ------------------------------------------------------------------ */
 
 static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_continuous_evt_data_t *edata,
@@ -48,7 +48,7 @@ static bool IRAM_ATTR s_conv_done_cb(adc_continuous_handle_t handle, const adc_c
 }
 
 /* ------------------------------------------------------------------ */
-/*  Internal ADC init helper                                            */
+/*  Internal ADC init helper                                          */
 /* ------------------------------------------------------------------ */
 
 static esp_err_t s_adc_init(void)
@@ -93,7 +93,7 @@ static esp_err_t s_adc_init(void)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Background reader task                                              */
+/*  Background reader task                                            */
 /* ------------------------------------------------------------------ */
 
 static void s_thumbstick_task(void *arg)
@@ -148,7 +148,7 @@ static void s_thumbstick_task(void *arg)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Public API                                                          */
+/*  Public API                                                        */
 /* ------------------------------------------------------------------ */
 
 esp_err_t thumbstick_init(void)
