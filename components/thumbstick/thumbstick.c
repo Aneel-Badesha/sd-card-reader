@@ -195,7 +195,7 @@ esp_err_t thumbstick_init(void)
         s_adc_handle = NULL;
         vSemaphoreDelete(s_mutex);
         s_mutex = NULL;
-        return rc
+        return rc;
     }
 
     rc = adc_continuous_start(s_adc_handle);
