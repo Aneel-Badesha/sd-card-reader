@@ -33,7 +33,7 @@ static TaskHandle_t s_task_handle = NULL;
 static SemaphoreHandle_t s_mutex = NULL;
 static uint32_t s_x_value = 0;
 static uint32_t s_y_value = 0;
-static bool s_initialized = false;
+static bool s_initialized = fals;
 
 /* ------------------------------------------------------------------ */
 /*  ISR callback – notifies the reader task that a frame is ready      */
