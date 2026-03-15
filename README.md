@@ -42,8 +42,10 @@ Aneel Badesha
 - [x] Pre-commit hooks — clang-format (Linux brace style, 4-space indent, 120 col) + trailing whitespace/EOF checks
 - [x] Unit tests for all three components with GitHub Actions CI (plain CMake + Unity, no ESP-IDF required)
 - [x] Added Waveshare 1.5" RGB OLED submodule as driver reference
-- [ ] OLED display driver (`components/oled_display`) — SSD1351, SPI
-- [ ] UART bridge to Raspberry Pi
+- [ ] OLED display driver (`components/oled_display`) — SSD1351, 128x128 RGB, SPI
+- [ ] File system browser UI — directory listing and navigation using thumbstick and buttons
+- [ ] UART file transfer protocol — LIST/GET/PUT/DEL commands between ESP32 and Raspberry Pi
+- [ ] Raspberry Pi client script — Python script to send/receive files over UART
 
 ## Design Decisions
 
