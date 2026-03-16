@@ -1,52 +1,107 @@
-
 # SD Card Reader
 
 ## Description
-ESP32 file manager for SD cards, enabling read/write/delete/copy/transfer to and from SD cards.
 
-Built with ESP-IDF 5.5.1, targeting the ESP32.
+ESP32-based handheld file browser for SD cards. Displays the SD card file system on a 1.5" RGB OLED and allows navigation using a thumbstick and two buttons.
+
+Built with ESP-IDF 5.5.1, targeting the ESP32-WROOM.
 
 ## Author
+
 Aneel Badesha
+
+---
 
 ## Hardware
 
 | Interface | Peripheral | Pins |
 |-----------|------------|------|
-| GPIO | Green button | GPIO 16 |
-| GPIO | Red button | GPIO 17 |
-| I2C (ADC) | Thumbstick (X/Y axes) | ADC CH0, ADC CH2 |
-| SPI | Micro SD card reader | MOSI 23, MISO 19, SCLK 18, CS 5, VCC **5V** |
-| SPI (HSPI) | 1.5" RGB OLED display (SSD1351, 128x128) | MOSI 13, SCLK 14, CS 15, DC 2, RST 4 |
-| UART | Raspberry Pi | TBD |
+| GPIO | Green button (select / enter) | GPIO 16 |
+| GPIO | Red button (back / cancel) | GPIO 17 |
+| ADC | Thumbstick X axis | GPIO 39 (ADC1 CH3) |
+| ADC | Thumbstick Y axis | GPIO 36 (ADC1 CH0) |
+| SPI (VSPI) | Micro SD card reader | MOSI 23, MISO 19, SCLK 18, CS 5, VCC **5V** |
+| SPI (HSPI) | 1.5" RGB OLED (SSD1351, 128×128) | MOSI 13, SCLK 14, CS 15, DC 2, RST 4 |
+| UART | Raspberry Pi (future) | TBD |
+
+> **Note:** The SD card module requires **5V** VCC — it has an onboard 5V→3.3V regulator. Connecting to the ESP32 3.3V pin will cause init failures.
+
+---
 
 ## Project Structure
 
 ```
 /components
-  /button        - GPIO button driver
-  /thumbstick    - ADC thumbstick driver
-  /sdcard        - SPI SD card driver with FatFS
-  /oled_display  - SSD1351 OLED driver (custom, ESP-IDF native)
-/main            - Application entry point and FreeRTOS tasks
+  /button        - GPIO button driver (active-low, pull-up)
+  /thumbstick    - Continuous ADC sampling, ISR-notified background task
+  /sdcard        - SPI SD card driver, FatFS mounted at /sdcard
+  /oled_display  - Custom SSD1351 driver (ESP-IDF SPI, 5×8 bitmap font)
+/main            - FreeRTOS tasks, file browser UI state machine
+/docs            - Design document and SSD1351 datasheet
 ```
+
+---
+
+## Architecture
+
+Four independent FreeRTOS tasks communicate through a shared mutex:
+
+| Task | Role |
+|------|------|
+| `s_button_task` | Polls GPIO 16/17 every 20 ms, writes to shared input state |
+| `s_thumbstick_task` | Reads ADC via ISR-notified loop, writes to shared input state |
+| `s_sd_card_task` | Inits SD card, writes boot timestamp, signals SD ready |
+| `s_oled_task` | Waits for SD ready, renders file browser, handles navigation |
+
+The SD card stays mounted for the full session. The OLED task uses `opendir`/`readdir` directly on the FatFS mount point.
+
+---
+
+## File Browser UI
+
+```
+┌──────────────────────┐
+│ /sdcard/photos/      │  ← current path (yellow)
+│ /vacation/           │
+│ /misc/               │
+│▶img001.jpg           │  ← selected (white highlight)
+│ img002.jpg           │
+│ img003.jpg           │
+│ ...                  │
+└──────────────────────┘
+```
+
+| Input | Action |
+|-------|--------|
+| Thumbstick up | Move selection up |
+| Thumbstick down | Move selection down |
+| Green button | Enter directory |
+| Red button | Go up one directory |
+
+---
 
 ## Progress
 
-- [x] GPIO button driver (`components/button`) — active-low, pull-up input
-- [x] Thumbstick driver (`components/thumbstick`) — continuous ADC sampling at 20 kHz with mutex-protected reads
-- [x] SD card driver (`components/sdcard`) — SPI mode at 4 MHz, FatFS mount, read/write/deinit
-- [x] FreeRTOS task structure in `main.c` for buttons, thumbstick, and SD card
-- [x] SD card task writes a boot-uptime timestamp to `/sdcard/timestamp.txt` on startup
-- [x] Pre-commit hooks — clang-format (Linux brace style, 4-space indent, 120 col) + trailing whitespace/EOF checks
-- [x] Unit tests for all three components with GitHub Actions CI (plain CMake + Unity, no ESP-IDF required)
-- [x] OLED display driver (`components/oled_display`) — custom SSD1351 driver, ESP-IDF SPI, 5×8 bitmap font
-- [x] File system browser UI — directory listing and navigation using thumbstick and buttons
-- [ ] UART file transfer protocol — LIST/GET/PUT/DEL commands between ESP32 and Raspberry Pi
-- [ ] Raspberry Pi client script — Python script to send/receive files over UART
+- [x] GPIO button driver — active-low, pull-up input
+- [x] Thumbstick driver — continuous ADC at 20 kHz, mutex-protected reads
+- [x] SD card driver — SPI at 4 MHz, FatFS, read/write/deinit
+- [x] SD card task writes boot-uptime timestamp to `/sdcard/timestamp.txt`
+- [x] OLED driver — custom SSD1351, ESP-IDF SPI, 5×8 bitmap font
+- [x] File browser UI — directory listing, scroll, enter/back navigation
+- [x] Pre-commit hooks — clang-format + trailing whitespace/EOF checks
+- [ ] UART file transfer (LIST/GET/PUT/DEL) to Raspberry Pi
+- [ ] Raspberry Pi Python client script
+
+---
 
 ## Design Decisions
 
-**File System: FatFS** — chosen over littlefs because the SD card needs to be readable on a PC. FatFS is the industry standard for SD cards and is optimized for 512-byte block architecture.
+**FatFS over littlefs** — SD card needs to be readable on a PC. FatFS is the standard for SD cards and optimized for 512-byte block architecture. Downside: no power-loss protection.
 
-**SD Interface: SPI** — chosen over SDMMC for pin flexibility (any GPIO via matrix) and easy bus sharing with the OLED display via separate CS pins. Trade-off is lower throughput vs native SDMMC 4-bit mode.
+**SPI over SDMMC** — SPI can be routed to any GPIO via the matrix and is simpler to share with the OLED on a breadboard. Downside: 1-bit mode only, lower throughput than native 4-bit SDMMC.
+
+**Separate SPI buses** — SD card on VSPI (SPI3), OLED on HSPI (SPI2). Each component owns its bus independently with no shared state or mutex needed between them.
+
+**Custom OLED driver** — Written directly against the SSD1351 datasheet (see `docs/SSD1351.pdf`) rather than porting the Waveshare Linux driver. Result is a clean, ESP-IDF-native implementation with no dead code.
+
+**Permanent SD mount** — Card stays mounted for the session rather than mounting per operation. Eliminates ~300 ms remount latency on every directory change, making the browser feel responsive.

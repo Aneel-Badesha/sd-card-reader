@@ -50,8 +50,9 @@ static volatile bool s_sd_ready = false;
 #define BROWSER_ROW_H 10
 #define BROWSER_PATH_ROW_H 12 // slightly taller path row at top
 
-#define THUMBSTICK_UP_THRESHOLD 2600
-#define THUMBSTICK_DOWN_THRESHOLD 1500
+// 40% deadzone: center=2048, 40% of 2048=819 → triggers at 2048±819
+#define THUMBSTICK_UP_THRESHOLD 2867
+#define THUMBSTICK_DOWN_THRESHOLD 1229
 
 typedef struct {
     char path[256];
@@ -116,8 +117,8 @@ static void s_render(const browser_t *b)
             oled_fill_rect(0, y, 128, BROWSER_ROW_H, OLED_WHITE);
         }
 
-        // Prefix directories with '/'
-        char label[22];
+        // Prefix directories with '/' — buffer sized for '/' + 63-char name + null
+        char label[65];
         if (b->is_dir[i]) {
             snprintf(label, sizeof(label), "/%s", b->names[i]);
         } else {
@@ -256,13 +257,13 @@ void s_oled_task(void *pvParameters)
         bool changed = false;
 
         // Thumbstick: move selection (edge-triggered on threshold cross)
-        if (stick_y > THUMBSTICK_UP_THRESHOLD && prev_y <= THUMBSTICK_UP_THRESHOLD) {
+        if (stick_y < THUMBSTICK_DOWN_THRESHOLD && prev_y >= THUMBSTICK_DOWN_THRESHOLD) {
             if (browser.selected > 0) {
                 browser.selected--;
                 s_scroll_clamp(&browser);
                 changed = true;
             }
-        } else if (stick_y < THUMBSTICK_DOWN_THRESHOLD && prev_y >= THUMBSTICK_DOWN_THRESHOLD) {
+        } else if (stick_y > THUMBSTICK_UP_THRESHOLD && prev_y <= THUMBSTICK_UP_THRESHOLD) {
             if (browser.selected < browser.count - 1) {
                 browser.selected++;
                 s_scroll_clamp(&browser);
@@ -273,7 +274,7 @@ void s_oled_task(void *pvParameters)
         // Green button (rising edge): enter directory
         if (green && !prev_green && browser.count > 0) {
             if (browser.is_dir[browser.selected]) {
-                char new_path[256];
+                char new_path[320]; // 255 (path) + 1 (/) + 63 (name) + 1 (null)
                 snprintf(new_path, sizeof(new_path), "%s/%s", browser.path, browser.names[browser.selected]);
                 strncpy(browser.path, new_path, sizeof(browser.path) - 1);
                 browser.selected = 0;

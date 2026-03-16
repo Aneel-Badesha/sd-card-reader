@@ -21,8 +21,8 @@ static const char *TAG = "thumbstick";
 #define THUMBSTICK_READ_LEN 256
 #define THUMBSTICK_CHANNEL_SIZE 2
 
-/* X axis = CH0, Y axis = CH2 */
-static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {ADC_CHANNEL_0, ADC_CHANNEL_2};
+/* X axis = ADC1_CH3 (GPIO 39), Y axis = ADC1_CH0 (GPIO 36) */
+static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {ADC_CHANNEL_3, ADC_CHANNEL_0};
 
 /* ------------------------------------------------------------------ */
 /*  Module-level state                                                */
@@ -31,8 +31,8 @@ static const adc_channel_t s_channels[THUMBSTICK_CHANNEL_SIZE] = {ADC_CHANNEL_0,
 static adc_continuous_handle_t s_adc_handle = NULL;
 static TaskHandle_t s_task_handle = NULL;
 static SemaphoreHandle_t s_mutex = NULL;
-static uint32_t s_x_value = 0;
-static uint32_t s_y_value = 0;
+static uint32_t s_x_value = 2048;
+static uint32_t s_y_value = 2048;
 static bool s_initialized = false;
 
 /* ------------------------------------------------------------------ */
