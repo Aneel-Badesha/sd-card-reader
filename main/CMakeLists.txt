@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.c"
                        INCLUDE_DIRS "."
-                       REQUIRES button thumbstick sdcard oled_display esp_timer)
+                       REQUIRES button thumbstick sdcard oled_display esp_timer ethernet)

@@ -21,6 +21,27 @@ static const char *TAG = "sdcard";
 static sdmmc_card_t *s_card = NULL;
 static sdmmc_host_t s_host;
 
+esp_err_t sdcard_bus_init(void)
+{
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = SD_CARD_MOSI,
+        .miso_io_num = SD_CARD_MISO,
+        .sclk_io_num = SD_CARD_SCLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4000,
+    };
+
+    esp_err_t rc = spi_bus_initialize(SPI3_HOST, &bus_cfg, SDSPI_DEFAULT_DMA);
+    if (rc != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize SPI3 bus: %s", esp_err_to_name(rc));
+        return rc;
+    }
+
+    ESP_LOGI(TAG, "SPI3 bus initialized");
+    return ESP_OK;
+}
+
 esp_err_t sdcard_init(void)
 {
     esp_err_t rc;
@@ -36,21 +57,6 @@ esp_err_t sdcard_init(void)
     s_host.slot = SPI3_HOST;    // GPIO 18/19/23/5 are native VSPI pins
     s_host.max_freq_khz = 4000; // 4 MHz — reduces CRC errors on breadboard wiring
 
-    spi_bus_config_t bus_cfg = {
-        .mosi_io_num = SD_CARD_MOSI,
-        .miso_io_num = SD_CARD_MISO,
-        .sclk_io_num = SD_CARD_SCLK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 4000,
-    };
-
-    rc = spi_bus_initialize(s_host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
-    if (rc != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize SPI bus: %s", esp_err_to_name(rc));
-        return rc;
-    }
-
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = SD_CARD_CS;
     slot_config.host_id = s_host.slot;
@@ -63,7 +69,6 @@ esp_err_t sdcard_init(void)
         } else {
             ESP_LOGE(TAG, "Failed to initialize card: %s", esp_err_to_name(rc));
         }
-        spi_bus_free(s_host.slot);
         return rc;
     }
 
@@ -114,9 +119,8 @@ esp_err_t sdcard_write_file(const char *path, const char *data)
 esp_err_t sdcard_deinit(void)
 {
     esp_vfs_fat_sdcard_unmount(MOUNT_POINT, s_card);
-    ESP_LOGI(TAG, "Card unmounted");
-    spi_bus_free(s_host.slot);
     s_card = NULL;
-
+    ESP_LOGI(TAG, "Card unmounted");
+    // SPI3 bus is shared with W5500 — do not free it here
     return ESP_OK;
 }

@@ -199,7 +199,7 @@ void s_thumbstick_task(void *pvParameters)
 void s_sd_card_task(void *pvParameters)
 {
     vTaskDelay(pdMS_TO_TICKS(500)); // wait for SD card VCC to stabilise
-    esp_err_t rc = sdcard_init();
+    esp_err_t rc = sdcard_init();   // bus already initialized in app_main
     if (rc != ESP_OK) {
         ESP_LOGE(TAG, "Failed to init sd card");
         vTaskDelete(NULL);
@@ -320,6 +320,13 @@ void s_oled_task(void *pvParameters)
 void app_main(void)
 {
     ESP_LOGI(TAG, "SD card reader starting...");
+
+    // Initialize SPI3 bus once — shared by SD card and W5500 Ethernet
+    esp_err_t bus_rc = sdcard_bus_init();
+    if (bus_rc != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize SPI3 bus");
+        return;
+    }
 
     s_mutex_input = xSemaphoreCreateMutex();
     if (s_mutex_input == NULL) {

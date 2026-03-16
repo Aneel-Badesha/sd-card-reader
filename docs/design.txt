@@ -256,6 +256,108 @@ CHALLENGES AND BUGS ENCOUNTERED
 
 
 ────────────────────────────────────────────────────────────────────────
+DECISION: FILE TRANSFER METHOD
+────────────────────────────────────────────────────────────────────────
+
+Goal: transfer files from the ESP32 SD card to a Raspberry Pi.
+
+Options evaluated:
+
+UART (built-in, no extra hardware):
+    + Already wired (TX/RX), zero extra cost
+    + Simple framing protocol, easy to implement both sides
+    - 921600 baud = ~90 KB/s max — a 1 MB file takes ~11s, 10 MB takes ~111s
+    - Acceptable for occasional small transfers, not for bulk data
+
+Wi-Fi (built-in to ESP32):
+    + No extra hardware; 1–5 Mbps throughput
+    + TCP/IP stack (lwIP) already in ESP-IDF
+    - Requires network configuration: SSID, password, router
+    - More complex setup for a wired device that sits next to a Pi
+    - Harder to make reliable in a headless embedded context
+
+LAN8720 RMII Ethernet (100 Mbps):
+    + Very high throughput (100 Mbps)
+    - Requires the ESP32's internal EMAC block via RMII interface
+    - RMII needs 9 dedicated pins; not available on ESP32-S3
+    - On ESP32-WROOM: GPIO 0 is used by RMII but is also the boot strapping
+      pin — pulling it low during reset/flash prevents boot
+    - GPIO 16 and 17 are used by PSRAM on some WROOM modules, conflicting
+      with RMII data lines
+    - External oscillator or crystal required for the 50 MHz RMII clock
+    - Not worth the GPIO conflicts on this board
+
+SPI (Pi as SPI master, ESP32 as slave):
+    + ~10 Mbps, no extra chip needed
+    - ESP32 SPI slave mode is awkward: full-duplex only, fixed transaction
+      sizes, no DMA-friendly streaming API
+    - Requires custom framing protocol on both sides
+
+Bluetooth SPP (built-in):
+    + No extra hardware; ~1–2 Mbps
+    - Pairing and reconnect logic adds complexity
+    - Classic BT stack is large; SPP deprecated in favour of BLE but BLE
+      has no standard file transfer profile
+
+W5500 SPI Ethernet (chosen):
+    + Self-contained SPI Ethernet controller — works on any ESP32 variant
+    + Shares existing SPI3 bus with the SD card (separate CS pin)
+    + Native ESP-IDF support via esp_eth component
+    + lwIP TCP/IP stack already in ESP-IDF; BSD socket API available
+    + 20–30 Mbps throughput — sufficient for file transfer
+    - Extra hardware cost (~$3–5 module)
+    - 20–30 Mbps vs 100 Mbps for LAN8720, but not a real constraint here
+
+Verdict: W5500 SPI Ethernet. Sufficient throughput, no GPIO conflicts,
+shares existing SPI3 bus, native ESP-IDF support, works on all ESP32
+variants including S3.
+
+TCP file transfer wire protocol (simple, no framing library):
+    ESP32 → Pi:  [4 bytes big-endian: filename length]
+                 [N bytes: filename (no null)]
+                 [8 bytes big-endian: file size in bytes]
+                 [file data streamed in 4 KB chunks]
+    Pi → ESP32:  [1 byte: 0x06 ACK] on success
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: SPI BUS SHARING FOR W5500
+────────────────────────────────────────────────────────────────────────
+
+Problem: SPI3 (VSPI) was fully owned by the SD card component.
+
+    sdcard_init()  → called spi_bus_initialize(SPI3_HOST, ...)
+    sdcard_deinit() → called spi_bus_free(SPI3_HOST)
+
+ESP-IDF requires spi_bus_initialize to be called exactly once per host.
+Calling it a second time returns ESP_ERR_INVALID_STATE. The W5500 driver
+also needs to add a device on SPI3 via spi_bus_add_device — it cannot do
+this if it tries to own the bus initialisation itself.
+
+Constraint: only one call to spi_bus_initialize per host for the session.
+Both the SD card device and the W5500 device must share SPI3.
+
+Fix: extract bus initialisation out of the SD card component.
+
+    sdcard_bus_init()  — calls spi_bus_initialize(SPI3_HOST, ...) once
+    sdcard_init()      — only calls spi_bus_add_device (no bus init)
+    sdcard_deinit()    — only removes the SD device; does not free the bus
+
+app_main calls sdcard_bus_init() once before creating any tasks. Both the
+SD card driver and the W5500 driver then call spi_bus_add_device with
+their respective CS pins. The bus persists for the full session.
+
+ESP-IDF SPI master driver handles CS toggling and bus arbitration
+automatically when transactions are submitted from different tasks. No
+application-level mutex is needed around SPI transactions — each device
+handle serialises its own transactions internally.
+
+Trade-off: the bus is never freed (spi_bus_free not called). Acceptable
+because the device is a single-session embedded system with no hot-swap
+or suspend requirement.
+
+
+────────────────────────────────────────────────────────────────────────
 TRADE-OFFS SUMMARY
 ────────────────────────────────────────────────────────────────────────
 
@@ -268,15 +370,17 @@ SD mount lifetime            Permanent mount          No hot-swap support
 OLED driver approach         Custom from datasheet    Time to write from scratch
 OLED SPI clock               10 MHz                   Full 128x128 redraw ~26ms
 File browser redraw          Full redraw on change    Minor flicker possible
-UART transfer                Not yet implemented      No PC file transfer
+File transfer method         W5500 SPI Ethernet       Extra hardware ($3-5)
+SPI3 bus ownership           Shared (SD + W5500)      Bus never freed
 
 
 ────────────────────────────────────────────────────────────────────────
 FUTURE WORK
 ────────────────────────────────────────────────────────────────────────
 
-- UART file transfer protocol (LIST / GET / PUT / DEL) to Raspberry Pi
-- Python client script on the Pi side using pyserial
+- W5500 Ethernet driver: esp_eth + esp_netif, TCP/IP via lwIP
+- TCP file transfer to Raspberry Pi with simple header protocol
+- Raspberry Pi Python receive script (tools/receive_file.py)
 - Faster font rendering: batch pixel writes per row instead of per pixel
 - Frame buffer to eliminate redraw flicker on selection change
 - SD card safe-eject: flush + unmount on long button hold
