@@ -17,7 +17,7 @@ Aneel Badesha
 | GPIO | Red button | GPIO 17 |
 | I2C (ADC) | Thumbstick (X/Y axes) | ADC CH0, ADC CH2 |
 | SPI | Micro SD card reader | MOSI 23, MISO 19, SCLK 18, CS 5, VCC **5V** |
-| SPI | 1.5" RGB OLED display (SSD1351, 128x128) | TBD |
+| SPI (HSPI) | 1.5" RGB OLED display (SSD1351, 128x128) | MOSI 13, SCLK 14, CS 15, DC 2, RST 4 |
 | UART | Raspberry Pi | TBD |
 
 ## Project Structure
@@ -27,7 +27,7 @@ Aneel Badesha
   /button        - GPIO button driver
   /thumbstick    - ADC thumbstick driver
   /sdcard        - SPI SD card driver with FatFS
-  /oled_display  - SSD1351 OLED driver (not started)
+  /oled_display  - SSD1351 OLED driver (custom, ESP-IDF native)
 /main            - Application entry point and FreeRTOS tasks
 ```
 
@@ -40,9 +40,8 @@ Aneel Badesha
 - [x] SD card task writes a boot-uptime timestamp to `/sdcard/timestamp.txt` on startup
 - [x] Pre-commit hooks — clang-format (Linux brace style, 4-space indent, 120 col) + trailing whitespace/EOF checks
 - [x] Unit tests for all three components with GitHub Actions CI (plain CMake + Unity, no ESP-IDF required)
-- [x] Added Waveshare 1.5" RGB OLED submodule as driver reference
-- [ ] OLED display driver (`components/oled_display`) — SSD1351, 128x128 RGB, SPI
-- [ ] File system browser UI — directory listing and navigation using thumbstick and buttons
+- [x] OLED display driver (`components/oled_display`) — custom SSD1351 driver, ESP-IDF SPI, 5×8 bitmap font
+- [x] File system browser UI — directory listing and navigation using thumbstick and buttons
 - [ ] UART file transfer protocol — LIST/GET/PUT/DEL commands between ESP32 and Raspberry Pi
 - [ ] Raspberry Pi client script — Python script to send/receive files over UART
 

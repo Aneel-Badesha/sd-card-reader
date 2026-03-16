@@ -1,0 +1,282 @@
+SD Card Reader - Design Document
+==================================
+
+Author: Aneel Badesha
+Hardware: ESP32-WROOM, ESP-IDF 5.5.1
+
+
+────────────────────────────────────────────────────────────────────────
+OVERVIEW
+────────────────────────────────────────────────────────────────────────
+
+A handheld ESP32 device that reads an SD card and presents a navigable
+file browser on a small OLED display. The user browses the file system
+using a thumbstick and two buttons. A UART bridge to a Raspberry Pi
+(future work) will allow files to be transferred to/from a PC.
+
+
+────────────────────────────────────────────────────────────────────────
+HARDWARE
+────────────────────────────────────────────────────────────────────────
+
+Interface    Peripheral                         Pins
+-----------  ---------------------------------  ---------------------------
+GPIO         Green button (select/enter)        GPIO 16
+GPIO         Red button (back/cancel)           GPIO 17
+ADC (cont.)  Thumbstick X/Y axes                ADC1 CH0 (X), ADC1 CH2 (Y)
+SPI (VSPI)   Micro SD card reader               MOSI 23, MISO 19, SCLK 18,
+                                                CS 5, VCC 5V
+SPI (HSPI)   1.5" RGB OLED (SSD1351, 128x128)   MOSI 13, SCLK 14, CS 15,
+                                                DC 2, RST 4
+UART         Raspberry Pi (future)              TBD
+
+
+────────────────────────────────────────────────────────────────────────
+PROJECT STRUCTURE
+────────────────────────────────────────────────────────────────────────
+
+/components
+    /button        - GPIO driver, active-low with pull-up
+    /thumbstick    - Continuous ADC sampling, background task, mutex reads
+    /sdcard        - SPI SD card driver, FatFS mount at /sdcard
+    /oled_display  - Custom SSD1351 driver, 5x8 bitmap font, rect/text API
+/main              - app_main, FreeRTOS tasks, file browser UI state machine
+/tests             - Host-native unit tests (plain CMake + Unity, no ESP-IDF)
+/docs              - Design document, datasheets (SSD1351.pdf)
+/.github/workflows - GitHub Actions CI (runs unit tests on ubuntu-latest)
+
+
+────────────────────────────────────────────────────────────────────────
+ARCHITECTURE
+────────────────────────────────────────────────────────────────────────
+
+Four independent FreeRTOS tasks:
+
+    s_button_task       Polls both GPIOs every 20ms, writes shared state
+    s_thumbstick_task   Reads ADC via ISR-notified background task, writes state
+    s_sd_card_task      Inits SD card, writes boot timestamp, signals SD ready
+    s_oled_task         Waits for SD ready, then runs file browser at 100ms
+
+All shared input state (button values, thumbstick X/Y) is protected by a
+single FreeRTOS mutex (s_mutex_input). The OLED task reads this state and
+edge-detects changes to drive the browser state machine.
+
+The SD card stays mounted permanently after init. The OLED task calls
+opendir/readdir directly on the FatFS mount point.
+
+    [SD Card] --SPI3(VSPI)--+
+                             |
+    [Buttons] --GPIO-----[ESP32]--SPI2(HSPI)-- [OLED]
+                             |
+    [Thumbstick] --ADC1-----+
+
+
+────────────────────────────────────────────────────────────────────────
+FILE BROWSER UI
+────────────────────────────────────────────────────────────────────────
+
+Display layout (128x128px, 5x8 font, 10px row height):
+
+    Row 0  (12px tall): current path in yellow
+    Rows 1-10:          file/directory names, 10 entries visible at once
+                        selected entry: white background, black text
+                        directories prefixed with '/'
+
+Input mapping:
+
+    Thumbstick Y > 2600   move selection up    (edge triggered)
+    Thumbstick Y < 1500   move selection down  (edge triggered)
+    Green button press    enter directory      (rising edge)
+    Red button press      go up one directory  (rising edge, stops at /sdcard)
+
+Scroll: scroll_offset tracks the top of the visible window and adjusts
+whenever the selection moves outside [offset, offset + BROWSER_VISIBLE).
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: FILE SYSTEM - FatFS vs littlefs
+────────────────────────────────────────────────────────────────────────
+
+FatFS chosen.
+
+FatFS:
+    + Industry standard for SD cards
+    + Optimized for the 512-byte block architecture of SD cards
+    + SD card is readable on any PC without extra software
+    - Not fail-safe: power loss during a write can corrupt the filesystem
+    - FAT 8.3 format limits base names to 8 chars without LFN support
+      (resolved: enabled CONFIG_FATFS_LFN_HEAP in sdkconfig)
+
+littlefs:
+    + Copy-on-write: old data never overwritten until new data is safe
+    + Immune to power-loss corruption
+    - Cannot be read on a PC without special tools
+    - Performance drops for large files
+
+Verdict: FatFS because the SD card must be readable on a PC.
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: SD INTERFACE - SDMMC vs SPI
+────────────────────────────────────────────────────────────────────────
+
+SPI chosen.
+
+SDMMC (native):
+    + Dedicated hardware controller with DMA, minimal CPU overhead
+    + Supports 4-bit mode: up to 4x the bandwidth of SPI
+    + Higher clock speeds (up to 40-50 MHz)
+    - Restricted to specific IO_MUX pins (GPIO 2, 4, 12, 13, 14, 15)
+    - Requires external pull-up resistors on most lines
+    - Cannot share pins with other SPI peripherals
+
+SPI:
+    + Can be routed to any GPIO via the GPIO matrix
+    + Easy bus sharing with other SPI devices via separate CS pins
+    + Simpler to debug for basic data logging
+    - 1-bit mode only: significantly slower for large file transfers
+    - More command/response cycles per block than native SDMMC
+    - Software-managed CS adds latency in ESP-IDF
+
+Verdict: SPI for pin flexibility. At 4 MHz the throughput is adequate
+for a file browser; bulk transfer speed is not a requirement.
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: OLED DRIVER - Port Waveshare vs Custom
+────────────────────────────────────────────────────────────────────────
+
+Custom driver chosen.
+
+Waveshare submodule:
+    + Init sequence and command codes already validated
+    + Graphics primitives available (lines, circles, text)
+    - Targets Raspberry Pi Linux (/dev/spidev, sysfs GPIO)
+    - Porting means keeping dead Linux HAL code in the tree
+    - Submodule adds repo weight and a hard external dependency
+
+Custom driver (from SSD1351 datasheet):
+    + Pure ESP-IDF: spi_device_polling_transmit, gpio_set_level
+    + Only the code actually needed (init + fill_rect + print_string)
+    + Embedded 5x8 font with no external dependency
+    - Required reading the full SSD1351 datasheet (see docs/SSD1351.pdf)
+
+Verdict: custom driver. Cleaner, smaller, no dead code.
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: SPI BUS TOPOLOGY - Shared bus vs Separate buses
+────────────────────────────────────────────────────────────────────────
+
+Separate SPI buses chosen.
+
+Shared bus (SD and OLED both on SPI3):
+    + Fewer GPIO pins used
+    - Requires refactoring sdcard_init to not own the bus lifecycle
+    - Mutex needed around every SPI transaction to prevent interleaving
+    - Initialisation order dependency between two components
+
+Separate buses (SD on SPI3/VSPI, OLED on SPI2/HSPI):
+    + Each component fully owns its bus — no shared state
+    + No changes to the existing SD card driver
+    + SD and OLED can operate concurrently without coordination
+    - Uses 3 extra GPIO pins for the second SCLK/MOSI/CS
+
+Verdict: separate buses. ESP32 has both VSPI and HSPI available and the
+extra pin count is acceptable on a breadboard.
+
+
+────────────────────────────────────────────────────────────────────────
+DECISION: SD CARD MOUNT LIFETIME
+────────────────────────────────────────────────────────────────────────
+
+Keep SD mounted for the full session.
+
+Mount/unmount per operation:
+    + SD card safe to remove at any time
+    - ~300ms remount latency on every directory change
+    - SPI bus unusable during mount/unmount
+
+Keep mounted permanently (chosen):
+    + Zero latency for opendir/readdir in the browser
+    + Simpler code, no remount logic
+    - SD card should not be removed while powered
+    - SPI3 bus held for the duration of the session
+
+Verdict: permanent mount. The device is handheld; hot-swap is not a
+requirement and the latency improvement makes the UI feel responsive.
+
+
+────────────────────────────────────────────────────────────────────────
+CHALLENGES AND BUGS ENCOUNTERED
+────────────────────────────────────────────────────────────────────────
+
+1.  FreeRTOS task abort - "FreeRTOS Task should not return"
+    Cause:  Task functions used bare `return` instead of vTaskDelete(NULL).
+    Fix:    Added vTaskDelete(NULL) before all return paths in tasks, and
+            added `void *pvParameters` to all task function signatures.
+
+2.  SD card ESP_ERR_TIMEOUT at init
+    Cause:  SD card module VCC connected to ESP32 3.3V pin. The module has
+            an onboard 5V->3.3V regulator that requires 5V input; feeding
+            it 3.3V directly starved the card of power.
+    Fix:    Moved VCC wire from ESP32 3V3 pin to VIN (5V). Also switched
+            to SPI3_HOST to use the native VSPI pins.
+
+3.  ESP_ERR_INVALID_CRC on sdmmc_check_scr
+    Cause:  Default 20 MHz SPI clock too fast for breadboard wire length,
+            causing signal integrity issues during the SCR register read.
+    Fix:    Reduced max_freq_khz from 20000 to 4000 (4 MHz).
+
+4.  fopen returns NULL with errno 22 (EINVAL / FR_INVALID_NAME)
+    Cause:  FAT 8.3 format only allows 8-character base names.
+            "timestamp" is 9 characters — invalid without LFN enabled.
+    Fix:    Enabled CONFIG_FATFS_LFN_HEAP=y in sdkconfig to allocate a
+            small heap buffer for long filename processing.
+
+5.  MISO line floating causing intermittent read errors
+    Cause:  MISO has no pull-up when the SD card is not driving it, so
+            the line floats and corrupts incoming bytes.
+    Fix:    Added 10kΩ pull-up resistor on the MISO line.
+
+6.  CI build failure - SPI3_HOST undeclared in unit tests
+    Cause:  The stub header tests/stubs/driver/spi_common.h did not
+            define SPI host enum values, so the host-native build failed.
+    Fix:    Added SPI1_HOST=0, SPI2_HOST=1, SPI3_HOST=2 to the stub.
+
+7.  CI linker error - multiple definition of setUp/tearDown
+    Cause:  setUp() and tearDown() were defined in all three test files,
+            causing duplicate symbol errors at link time.
+    Fix:    Removed setUp/tearDown from individual test files and placed
+            a single definition in run_tests.c.
+
+8.  const qualifier mismatch in sdcard_write_file
+    Cause:  Header declared `char *data`, implementation used `const char *`.
+    Fix:    Updated header to `const char *data`.
+
+
+────────────────────────────────────────────────────────────────────────
+TRADE-OFFS SUMMARY
+────────────────────────────────────────────────────────────────────────
+
+Trade-off                    Choice made              Cost accepted
+---------------------------  -----------------------  ----------------------
+File system                  FatFS                    No power-loss safety
+SD interface                 SPI                      Lower throughput
+SPI bus topology             Separate buses           3 extra GPIO pins
+SD mount lifetime            Permanent mount          No hot-swap support
+OLED driver approach         Custom from datasheet    Time to write from scratch
+OLED SPI clock               10 MHz                   Full 128x128 redraw ~26ms
+File browser redraw          Full redraw on change    Minor flicker possible
+UART transfer                Not yet implemented      No PC file transfer
+
+
+────────────────────────────────────────────────────────────────────────
+FUTURE WORK
+────────────────────────────────────────────────────────────────────────
+
+- UART file transfer protocol (LIST / GET / PUT / DEL) to Raspberry Pi
+- Python client script on the Pi side using pyserial
+- Faster font rendering: batch pixel writes per row instead of per pixel
+- Frame buffer to eliminate redraw flicker on selection change
+- SD card safe-eject: flush + unmount on long button hold
